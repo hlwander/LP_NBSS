@@ -1,0 +1,13 @@
+"trophic_group","trophic_state","edf","F","p_adj"
+"Autotroph","Oligotrophic",1.32,0.21,0.888
+"Autotroph","Mesotrophic",1,0.35,0.828
+"Autotroph","Eutrophic",1,0.76,0.688
+"Herbivore","Oligotrophic",1,0.71,0.688
+"Herbivore","Mesotrophic",2.78,0.35,0.888
+"Herbivore","Eutrophic",1.36,0.12,0.888
+"Mixotroph","Oligotrophic",1.05,0.03,0.891
+"Mixotroph","Mesotrophic",1,8.18,0.053
+"Mixotroph","Eutrophic",1,1.29,0.688
+"Non-herbivore","Oligotrophic",1,0.96,0.688
+"Non-herbivore","Mesotrophic",1.33,2.26,0.311
+"Non-herbivore","Eutrophic",1,5.83,0.096

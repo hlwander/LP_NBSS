@@ -1,0 +1,13 @@
+"trophic_group","trophic_state","cor","p_value"
+"Herbivore","Oligotrophic",0.02,0.82
+"Herbivore","Mesotrophic",0.03,0.663
+"Herbivore","Eutrophic",0.06,0.542
+"Non-herbivore","Oligotrophic",0.04,0.596
+"Non-herbivore","Mesotrophic",-0.02,0.754
+"Non-herbivore","Eutrophic",0.1,0.333
+"Autotroph","Oligotrophic",-0.01,0.925
+"Autotroph","Mesotrophic",0.21,0.001
+"Autotroph","Eutrophic",0.11,0.193
+"Mixotroph","Oligotrophic",0.11,0.114
+"Mixotroph","Mesotrophic",0.18,0.004
+"Mixotroph","Eutrophic",0.13,0.141
