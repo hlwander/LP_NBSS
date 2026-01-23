@@ -4,15 +4,8 @@ pacman::p_load(tidyverse, dplyr, ggplot2, ggmap,
                rnaturalearth, rnaturalearthdata, 
                ARTool, ggpubr, mgcv, ggpp)
 
-#tidyverse, broom, purrr, ggplot2, stringr, mice,
-#car, ARTool, corrplot, magrittr, vegan, mgcv, dplyr,
-#rnaturalearth, rnaturalearthdata, ggmap, multcompView, 
-#multcomp, emmeans, ggpubr, scales, ggridges, forcats,
-#viridis, gratia, ggpp
-
 # calculate trophic state using chla (file modified from CP where NAs were replaced using miss forest or ecozonal means)
-pred <- read.csv("data/lake_chla_ecozone.csv") |>
-  rename(lake_id = lakepulse_id) |>
+pred <- read.csv("data/chla.csv") |>
   mutate(trophic_state = case_when( is.na(chla_day) ~ NA_character_, 
                                     chla_day < 2 ~ "Oligotrophic",
                                     chla_day < 7 ~ "Mesotrophic",
@@ -28,171 +21,13 @@ pred <- read.csv("data/lake_chla_ecozone.csv") |>
 phyto_supp_lengths <- read.csv("data/supp_lengths/published_phytoplankton_colony_lengths.csv") |>
   rename(supp_length_um = avg_length_um)
 
-#read in the density/biomass file; units: biomass = mg/m3, density = #/L, GALD = um
-phyto_dens_biom <- read.csv("data/LP_allphyto.full_01Oct2025.csv", row.names=1) |>
-  mutate(target_taxon = sub("\\s.*", "", Basionym)) |>
-  rename(biomass_mg_m3 = biomass,
-         density_nopL = density,
-         gald_um = gald) |>
-  mutate(target_taxon = ifelse(target_taxon == "A.", "Anabaena", 
-                               ifelse(target_taxon == "M.", "Microcystis", target_taxon))) |>
-  filter(!(biomass_mg_m3 == 0 & density_nopL == 0)) |>
-  arrange(lake_id) |>
-  distinct() |>
-  mutate(target_taxon = case_when(
-    target_taxon == "Cyrptomonas" ~ "Cryptomonas",
-    target_taxon == "Crucegenia" ~ "Crucigenia",
-    target_taxon == "Scenesdesmus" ~ "Scenedesmus",
-    target_taxon == "Mallomomas" ~ "Mallomonas",
-    target_taxon == "Chamydomonas" ~ "Chlamydomonas",
-    target_taxon == "Pedridium" ~ "Peridinium",
-    target_taxon == "Perdinium" ~ "Peridinium",
-    target_taxon == "Perididium" ~ "Peridinium",
-    target_taxon == "Cosmariun" ~ "Cosmarium",
-    target_taxon == "Trachemolomas" ~ "Trachelomonas",
-    target_taxon == "Trachelomomas" ~ "Trachelomonas",
-    target_taxon ==  "Anabaena" ~ "Dolichospermum",
-    target_taxon == "Micratinium" ~ "Micractinium",
-    target_taxon == "Planktolyngya" ~ "Planktolyngbya",
-    target_taxon == "Planktonema" ~ "Planctonema",
-    target_taxon == "Schroderia" ~ "Schroederia",
-    target_taxon == "Haptophyte" ~ "Chrysochromulina", #id'ed as "Haptophyte (Erkenia/Chrysochromulina)", but Erkenia does not seem to be a fully independent genus according to google
-    target_taxon == "Limnothrix/Jaaginema" ~ "Limnothrix", #lumping this taxon in with Limnothrix because Jaaginema is not present in dataset
-    target_taxon == "Unidentified" ~ "Other",   
-    TRUE ~ target_taxon  # keep everything else as is
-  )) |>  #keeping Cyclotella/Stephanodiscus as a distinct taxon bc both genera are already present in dataset Limnothrix/Jaaginema
-  dplyr::select(target_taxon, lake_id, biomass_mg_m3, density_nopL, gald_um)
-
-#calculate % contribution per lake
-phyto_pct_per_lake <- phyto_dens_biom |>
-  group_by(lake_id) |>
-  mutate(total_biomass_lake = sum(biomass_mg_m3, na.rm = TRUE),
-         pct_biomass = if_else(total_biomass_lake > 0,
-                               100 * biomass_mg_m3 / total_biomass_lake, 0)) |>
-  ungroup() |>
-  group_by(target_taxon) |>
-  summarise(n_lakes_present = sum(biomass_mg_m3 > 1e-6, na.rm = TRUE),
-            max_pct_across_lakes = max(pct_biomass, na.rm = TRUE),
-            mean_pct_across_lakes = mean(pct_biomass, na.rm = TRUE),
-            total_biomass_across_dataset = sum(biomass_mg_m3, na.rm = TRUE),
-            .groups = "drop")
-
-#identify taxa with max_pct < 1% AND occur in fewer than 5 lakes
-rare_taxa <- phyto_pct_per_lake |>
-  filter(max_pct_across_lakes < 1 |
-           n_lakes_present < 5) |>
-  arrange(n_lakes_present, max_pct_across_lakes)
-
-#remove rare taxa
-final_phyto_dens_biom <- phyto_dens_biom |>
-  filter(!target_taxon %in% rare_taxa$target_taxon)
-
-#bring in zoop size data 
-zoops_raw <- read.csv("data/raw_zoops.csv") |> #was called all_rawdata.csv
-  rename(lake_id = ID_lakepulse,
-         density_NopL = X....L,
-         biomass_ugL = species.biomass..µg.d.w..L.) |>
-  filter(biomass_ugL > 0 & !is.na(biomass_ugL),
-         X.individuals.counted >= 100, #following CP methods
-         !comments %in% "Unidentified sample either 09-420 or 11-343.") |>
-  mutate(target_taxon = str_to_sentence(genus),
-         target_taxon = ifelse(species %in% c("sicilis", "sicilis copepodid"),
-                               "Leptodiaptomus sicilis", 
-                               target_taxon)) |>
-  pivot_longer(cols = c(D1:D10), names_to = "rep",
-               values_to = "length_mm") |>
-  mutate(length_um = length_mm * 1000,
-         lake_id = trimws(lake_id)) |> 
-  dplyr::select(lake_id, target_taxon, density_NopL, biomass_ugL, length_um) |>
-  distinct()
-#not summarizing across genera bc we want the length variability for size spectra
-
-#calculate % contribution per lake
-zoop_pct_per_lake <- zoops_raw |>
-  group_by(lake_id) |>
-  mutate(total_biomass_lake = sum(biomass_ugL, na.rm = TRUE),
-         pct_biomass = if_else(total_biomass_lake > 0,
-                               100 * biomass_ugL / total_biomass_lake, 0)) |>
-  ungroup() |>
-  group_by(target_taxon) |>
-  summarise(n_lakes_present = sum(biomass_ugL > 1e-6, na.rm = TRUE),
-            max_pct_across_lakes = max(pct_biomass, na.rm = TRUE),
-            mean_pct_across_lakes = mean(pct_biomass, na.rm = TRUE),
-            total_biomass_across_dataset = sum(biomass_ugL, na.rm = TRUE),
-            .groups = "drop")
-
-#identify taxa with max_pct < 1% AND occur in fewer than 5 lakes
-zoop_rare_taxa <- zoop_pct_per_lake |>
-  filter(max_pct_across_lakes < 1 |
-           n_lakes_present < 5) |>
-  arrange(n_lakes_present, max_pct_across_lakes)
-#none to drop
-
-#remove rare taxa and rename cols
-final_zoop_df <- zoops_raw |>
-  filter(!target_taxon %in% zoop_rare_taxa$target_taxon) |>
-  rename(biomass = biomass_ugL, #dropping units for merge w/ phytos
-         density_nopL = density_NopL) 
-
-#now combine dfs
-phytos_all <- final_phyto_dens_biom |>
-  left_join(phyto_supp_lengths, by = "target_taxon") |>
-  mutate(lake_id = str_replace(lake_id, "^id", ""),   # remove "id" at start
-         lake_id = str_replace(lake_id, "\\.", "-"),        # replace "." with "-"
-         lake_id = str_extract(lake_id, "^[0-9]{2}-[0-9]{3}")) |>  # replace "." with "-"
-  mutate(supp_length_um = ifelse(is.na(supp_length_um), gald_um, supp_length_um)) |>
-  dplyr::select(-gald_um) |>
-  rename(length_um = supp_length_um,
-         biomass = biomass_mg_m3) #dropping units for merge w/ zoops
-
-#merge with the zoop df
-all_plankton <- bind_rows(phytos_all, final_zoop_df)
-
-#log the gald col
-all_plankton <- all_plankton |> 
-  mutate(log_length = log10(as.numeric(length_um)))
+#read in plankton df
+plankton_with_strategy <- read.csv("data/plankton_all.csv")
 
 #define bin breaks
-breaks <- seq(floor(min(all_plankton$log_length, na.rm = TRUE) / 0.1) * 0.1,
-              ceiling(max(all_plankton$log_length, na.rm = TRUE) / 0.1) * 0.1, by = 0.1)
-
-# pull in phyto nutritional strategies
-strategy <- read.csv("data/nanoplanktonnutritionstrategiesdb_v2_fbae035.csv") |>
-  mutate(target_taxon = Genus) |> 
-  bind_rows(tibble(target_taxon = c("Cyanobacteria", "Diatoms", "Haptophyte", "Eutetramorus"), #bc all cyaos and diatoms are autotrophs and haptophytes are mixotrophs
-                   Final_Nutrition_Strategy = c("Autotroph", "Autotroph", "Mixotroph", "Autotroph"))) |>
-  rename(trophic_group = Final_Nutrition_Strategy)
-#adding Eutetramorus because Leong and Chang 2023 say that E. planctonicus is autotrophic (and cite	D’Alessandro et al. (2018))
-
-# pull in zoop functional groups
-zoop_function <- read.csv("data/Functionaltraitsmatrix.csv", sep = ";") |>
-  mutate(target_taxon = str_to_sentence(word(Species.name, 1, sep = "\\."))) |>
-  rename(trophic_group = trophic.group) |>
-  dplyr::select(target_taxon, trophic_group) |>
-  filter(target_taxon %in% final_zoop_df$target_taxon) |>
-  mutate(trophic_group = if_else(trophic_group %in% c(
-    "Herbivore", "Omnivore/Herbivore"), "Herbivore", "Non-herbivore")) |>
-  mutate(target_taxon = ifelse(trophic_group == "Non-herbivore" & 
-                                 target_taxon == "Leptodiaptomus",
-                               "Leptodiaptomus sicilis", 
-                               target_taxon)) |>
-  distinct()
-#herbivores vs. everyone else
-#Lepto is both omnivore (siicilis) and herbivore
-
-#join plankton functional groups
-fun_groups <- bind_rows(strategy, zoop_function) |>
-  dplyr::select(target_taxon, trophic_group)
-
-# join functional groups w/ plankton data
-# some taxa have multiple sizes per lake
-plankton_with_strategy <- all_plankton |>
-  left_join(fun_groups,  by = "target_taxon") |>
-  mutate(trophic_group = ifelse(target_taxon == "Chydorus ", "Non-herbivore", 
-                                ifelse(target_taxon == "Cyclotella/Stephanodiscus",
-                                       "Mixotroph", trophic_group)))
-#write.csv(plankton_with_strategy, "output/plankton_final.csv", row.names = FALSE)
-#some species of Stephanodiscus are mixotrophic so grouping as such
+breaks <- seq(floor(min(plankton_with_strategy$log_length, na.rm = TRUE) / 0.1) * 0.1,
+              ceiling(max(plankton_with_strategy$log_length, na.rm = TRUE) / 0.1) * 0.1, 
+              by = 0.1)
 
 #bin taxa and sum biomass per bin per lake
 spectra_lake_bins <- plankton_with_strategy |>
@@ -205,7 +40,7 @@ spectra_lake_bins <- plankton_with_strategy |>
          bin_width = size_upper - size_lower,
          bin_mid = (log_lower + log_upper) / 2) |>
   filter(!is.na(biomass)) |>
-  group_by(lake_id, trophic_group, bin_mid, size_lower, size_upper, bin_width) |>
+  group_by(key, trophic_group, bin_mid, size_lower, size_upper, bin_width) |>
   summarise(total_biomass = sum(biomass, na.rm = TRUE), .groups = "drop") |>
   mutate(nbss = total_biomass / bin_width,
          log_nbss = ifelse(nbss > 0, log10(nbss), NA_real_),
@@ -219,7 +54,7 @@ spectra_lake_bins <- plankton_with_strategy |>
 #calculate NBSS as slope of log NBSS vs log size bin
 fits <- spectra_lake_bins |>
   filter(!is.na(log_nbss), !is.na(log_size))  |>
-  group_by(lake_id, trophic_group) |>  
+  group_by(key, trophic_group) |>  
   summarise(n_bins = n(), model = list(
     if (n() >= 5) {
       tryCatch(lm(log_nbss ~ log_size, data = cur_data()), error = function(e) NULL)
@@ -238,9 +73,9 @@ good <- fits |> filter(ok) |> #keeping at least 5 size class bins
 coeffs_wide <- good |>
   mutate(tidy = map(model, broom::tidy),
          glance = map(model, broom::glance)) |>
-  dplyr::select(lake_id, trophic_group, n_bins, tidy, glance) |>
+  dplyr::select(key, trophic_group, n_bins, tidy, glance) |>
   unnest(tidy) |>
-  pivot_wider(id_cols = c(lake_id, trophic_group, n_bins),
+  pivot_wider(id_cols = c(key, trophic_group, n_bins),
               names_from = term,
               values_from = c(estimate, std.error, p.value),
               names_glue = "{.value}__{term}")
@@ -256,15 +91,15 @@ names(coeffs_wide) <- names(coeffs_wide) %>%
 
 # Unpack glance stats into columns and join with coeffs
 glance_wide <- good |>
-  dplyr::select(lake_id, trophic_group, glance) |>
+  dplyr::select(key, trophic_group, glance) |>
   unnest_wider(glance)
 
 #this drops 11 lakes that do not have trophic state classifications
 fits_summary <- coeffs_wide |>
-  left_join(glance_wide, by = c("lake_id", "trophic_group")) |>
-  left_join(pred |> dplyr::select(lake_id, trophic_state, ecozone), 
-            by = "lake_id") |>
-  arrange(trophic_group, lake_id) |>
+  left_join(glance_wide, by = c("key", "trophic_group")) |>
+  left_join(pred |> dplyr::select(key, trophic_state), 
+            by = "key") |>
+  arrange(trophic_group, key) |>
   mutate(plankton = ifelse(trophic_group %in% c("Mixotroph","Autotroph"),
                            "Phytoplankton", "Zooplankton"),
          trophic_state = if_else(trophic_state == "Hypereutrophic", 
@@ -383,7 +218,7 @@ ggarrange(p_ts, p_fg, ncol = 1, nrow = 2,
 
 # slope across functional groups (Figure 2)
 spectra_summary <- spectra_lake_bins |>
-  left_join(pred |> dplyr::select(trophic_state, lake_id), by = "lake_id") |>
+  left_join(pred |> dplyr::select(trophic_state, key), by = "key") |>
   group_by(trophic_group, trophic_state, log_size) |> 
   summarise(mean_log_nbss = mean(log_nbss, na.rm = TRUE),
             sd_log_nbss = sd(log_nbss, na.rm = TRUE),
@@ -502,7 +337,7 @@ broom::tidy(quad_all)
 broom::glance(quad_all)   
 
 #Figure S4
-lake_slope_summary <- fits_collapsed |>
+lake_slope_summary <- fits_summary |>
   group_by(trophic_state, trophic_group) |>
   summarise(
     mean_slope = mean(slope, na.rm = TRUE),        
@@ -530,10 +365,9 @@ ggplot(lake_slope_summary, aes(x = trophic_group,
 #ggsave("figs/slope_ts_fg.jpg", width = 6, height = 5)
 
 #raw plankton biomass by group
-biomass_abs <- all_plankton |>
-  left_join(fun_groups, by = "target_taxon") |>
-  left_join(pred |> dplyr::select(lake_id, trophic_state), by = "lake_id") |>
-  group_by(lake_id, trophic_group, trophic_state) |>
+biomass_abs <- plankton_with_strategy |>
+  left_join(pred |> dplyr::select(key, trophic_state), by = "key") |>
+  group_by(key, trophic_group, trophic_state) |>
   summarise(total_biomass = sum(biomass, na.rm = TRUE),
             mean_size = mean(length_um, na.rm = TRUE), #gald_um
             .groups = "drop") |>
@@ -618,16 +452,16 @@ median(dat$mean_size[dat$trophic_group=="Non-herbivore" &
                        dat$trophic_state %in% "Eutrophic"])
 
 # Compute medians (slope and chla) across trophic state and functional groups
-median_points <- fits_collapsed |>
-  left_join(pred |> dplyr::select(lake_id, chla_day), by = "lake_id") |>
+median_points <- fits_summary |>
+  left_join(pred |> dplyr::select(key, chla_day), by = "key") |>
   group_by(trophic_group, trophic_state) |>
   summarise(median_slope = median(slope, na.rm = TRUE),
             median_logchla = median(log10(chla_day), na.rm = TRUE),
             .groups = "drop")
 
 #chla vs slope (Figure 5)
-fits_collapsed |>
-  left_join(pred |> dplyr::select(lake_id, chla_day), by = "lake_id") |>
+fits_summary |>
+  left_join(pred |> dplyr::select(key, chla_day), by = "key") |>
   mutate(log_chla = log10(chla_day),
          slope_dir = ifelse(slope >= 0, "positive", "negative")) |>
   ggplot(aes(x = slope, y = log_chla, color = trophic_state, fill = trophic_state)) +
@@ -652,7 +486,7 @@ fits_collapsed |>
 
 #add log chla to dat
 dat <- dat |> 
-  left_join(pred |> dplyr::select(lake_id, chla_day), by = "lake_id") |> 
+  left_join(pred |> dplyr::select(key, chla_day), by = "key") |> 
   mutate(log_chla = log10(chla_day))
 
 #fit a GAM for each functional group
@@ -722,6 +556,7 @@ results_table <- map_dfr(models, extract_gam_stats, .id = "trophic_group") |>
 
 # Fit interactive GAMs per functional group
 gams_interactive <- dat |>
+  mutate(trophic_state = factor(trophic_state)) |>
   group_by(trophic_group) |>
   group_map(~ gam(
     log_size ~ trophic_state + s(log_chla, by = trophic_state, k = 6),
@@ -756,22 +591,32 @@ smooths_table <- imap_dfr(gams_interactive, ~ {
 # Table S6 NEDDS TO BE UPDATED IN SI
 cor_table <- dat |>
   dplyr::group_by(trophic_group, trophic_state) |>
-  dplyr::summarise(cor = cor(log_size, log_chla, method = "spearman"),
+  dplyr::summarise(n = sum(complete.cases(log_size, log_chla)),
+                   cor = cor(log_size, log_chla, method = "spearman"),
                    p_value = cor.test(log_size, log_chla, method = "spearman")$p.value,
                    .groups = "drop") |>
   dplyr::mutate(p_value = round(p_value, 3),
                 cor = round(cor,2))
 #write.csv(cor_table, "output/size_correlation_table.csv", row.names = F)
+#warning is fine because sample size is large enough
 
 #calculate percent positive slope
-pos_summary <- fits_ordered |>
+pos_summary <- fits_summary |>
   group_by(trophic_state, trophic_group) |>
   summarize(n = n(), n_pos = sum(slope > 0, na.rm = TRUE),
             pct_pos = 100 * n_pos / n) |> 
   ungroup()
 
+#count hopw many lakes in each trophic state
+lake_counts <- fits_summary  |>
+  distinct(key, trophic_state) |>  
+  count(trophic_state) |>              
+  mutate(label = paste0(trophic_state, " (n = ", n, ")"))
+
+label_map <- setNames(lake_counts$label, lake_counts$trophic_state)
+
 # visualize positive slopes too (Figure 4)
-ggplot(fits_ordered, aes(x = trophic_group, y = slope, color = trophic_group)) +
+ggplot(fits_summary, aes(x = trophic_group, y = slope, color = trophic_group)) +
   geom_jitter(width = 0.2, height = 0, size = 3, alpha = 0.2) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
   stat_summary(fun = median, geom = "point", size = 4, shape = 18, color = "black") +
@@ -820,14 +665,13 @@ sum(pos_summary$n_pos[pos_summary$trophic_state=="Eutrophic"])/
 # Get Canada map Figure S2
 canada <- ne_countries(scale = "medium", country = "Canada", returnclass = "sf")
 
-# SSA data with coordinates
-ssa_df <- fits_summary |>
-  left_join(pred |> dplyr::select(lake_id,latitude,longitude), by = "lake_id") |>
+# lake coordinates
+lat_long_df <- read.csv("data/map_data.csv") |>
   filter(!is.na(latitude) & !is.na(longitude))
 
 ggplot() +
   geom_sf(data = canada, fill = "gray90", color = "black") +
-  geom_point(data = ssa_df, aes(x = longitude, y = latitude, 
+  geom_point(data = lat_long_df, aes(x = longitude, y = latitude, 
                                 color = trophic_state), size = 2) +
   labs(color = "") +
   scale_color_manual(values = c("Oligotrophic" = "#21908CFF", 
