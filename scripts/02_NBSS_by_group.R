@@ -236,8 +236,7 @@ ggplot(spectra_summary, aes(x = log_size, y = mean_log_nbss,
                             color = trophic_group)) +
   geom_point(show.legend = T) +
   geom_smooth(method = "lm", se = FALSE,  show.legend = FALSE) +
-  geom_smooth(method = "lm", formula = y ~ x + I(x^2), se = FALSE, 
-              color = "grey50", linetype = "dashed") +
+  geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed") +
   scale_x_continuous("Log10 mean size (µm)") +
   scale_y_continuous("Log10 NBSS") +
   scale_color_manual(values = c(
@@ -256,8 +255,7 @@ ggplot(spectra_summary, aes(x = log_size, y = mean_log_nbss,
 ggplot(spectra_summary, aes(x = log_size, y = mean_log_nbss, color = trophic_group)) +
   geom_point(show.legend = TRUE) +
   geom_smooth(method = "lm", se = FALSE, show.legend = FALSE) +      
-  geom_smooth(method = "lm", formula = y ~ x + I(x^2), 
-              se = FALSE, color = "black") +
+  geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed") +
   facet_wrap(~ trophic_state, nrow=1) +                                         
   scale_x_continuous("Log10 mean size (µm)") +
   scale_y_continuous("Log10 NBSS") +
