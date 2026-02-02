@@ -171,7 +171,8 @@ p_ts <- ggplot(slope_summary_ts,
   theme(legend.title = element_blank(),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
-        axis.ticks = element_line(),
+        axis.line = element_line(color = "black",linewidth = 0.2),
+        axis.ticks = element_line(color = "black",linewidth = 0.2),
         text = element_text(size=6),
         strip.text = element_text(face = "bold")) 
 
@@ -209,12 +210,13 @@ p_fg <- ggplot(slope_summary_fg,
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         text = element_text(size=6),
-        axis.ticks = element_line()) 
+        axis.line = element_line(color = "black",linewidth = 0.2),
+        axis.ticks = element_line(color = "black",linewidth = 0.2)) 
 
 ggarrange(p_ts, p_fg, ncol = 1, nrow = 2,       
           heights = c(1.4, 1),  
           widths = c(2,1), common.legend = FALSE)
-#ggsave("figs/plankton_sig_slopes.jpg", width = 5, height = 3)
+#ggsave("figs/plankton_sig_slopes.jpg", width = 4, height = 4)
 
 # slope across functional groups (Figure 2)
 spectra_summary <- spectra_lake_bins |>
@@ -237,8 +239,8 @@ ggplot(spectra_summary, aes(x = log_size, y = mean_log_nbss,
   geom_point(show.legend = T) +
   geom_smooth(method = "lm", se = FALSE,  show.legend = FALSE) +
   geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed") +
-  scale_x_continuous("Log10 mean size (µm)") +
-  scale_y_continuous("Log10 NBSS") +
+  scale_x_continuous(expression(Log[10]~mean~size)) +
+  scale_y_continuous(expression(Log[10]~NBSS)) +
   scale_color_manual(values = c(
     "Autotroph" = "#3E6E66",
     "Mixotroph"  = "#739A88",
@@ -248,7 +250,9 @@ ggplot(spectra_summary, aes(x = log_size, y = mean_log_nbss,
   theme(legend.title = element_blank(),
         legend.position = "top",
         panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank())
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(color = "black"),
+        axis.ticks = element_line(color = "black"))
 #ggsave("figs/slopes_by_group.jpg", width = 5, height = 4)
 
 #slopes faceted by trophic state (Figure S3)
@@ -269,7 +273,9 @@ ggplot(spectra_summary, aes(x = log_size, y = mean_log_nbss, color = trophic_gro
         legend.position = "top",
         legend.direction = "horizontal",
         panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank())
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(color = "black"),
+        axis.ticks = element_line(color = "black"))
 #ggsave("figs/ssa_functional_groups_by_ts.jpg", width = 6, height = 5)
 
 #------------------
@@ -355,7 +361,9 @@ ggplot(lake_slope_summary, aes(x = trophic_group,
         legend.position = "top",
         legend.direction = "horizontal",
         panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank()) +
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(color = "black"),
+        axis.ticks = element_line(color = "black")) +
   scale_color_manual(values = c("Oligotrophic" = "#21908CFF", 
                                 "Mesotrophic" = "#FDE725FF",
                                 "Eutrophic" = "#440154FF")) +
@@ -380,16 +388,23 @@ dat <- biomass_abs |>
          plankton = ifelse(trophic_group %in% c("Herbivore","Non-herbivore"),
                            "zooplankton","phytoplankton"))
 
-means <- dat |>
-  group_by(trophic_state, trophic_group) |> 
-  summarize(mu = median(mean_size, na.rm = TRUE), .groups = "drop") |>
+weighted_peaks <- dat |>
+  group_by(trophic_state, trophic_group) |>
+  group_modify(~{
+    d <- density(
+      x = .$mean_size,
+      weights = .$total_biomass,
+      na.rm = TRUE)
+    tibble(mu = d$x[which.max(d$y)])}) |>
+  ungroup() |>
   mutate(plankton = ifelse(trophic_group %in% c("Herbivore","Non-herbivore"),
-                           "zooplankton","phytoplankton"))
+                      "zooplankton","phytoplankton"))
 
 #histogram of plankton size across trophic states (Figure 1)
 ggplot(dat |> filter(), aes(x = mean_size, fill = trophic_group)) +
-  geom_density(alpha = 0.8) +
-  geom_vline(data = means, aes(xintercept = mu, color = trophic_group, group = plankton), 
+  geom_density(aes(weight = total_biomass), alpha = 0.7) +
+  geom_vline(data = weighted_peaks, aes(xintercept = mu, color = trophic_group, 
+                                        group = plankton),
              linetype = "dashed", size = 0.6, show.legend = FALSE) +
   facet_wrap(~trophic_state + plankton, nrow = 3, scales = "free",
              labeller = labeller(trophic_state = label_value, 
@@ -408,8 +423,10 @@ ggplot(dat |> filter(), aes(x = mean_size, fill = trophic_group)) +
   labs(x = "Mean size (µm)", y = "Density", fill = "") +
   theme(legend.position = "top", 
         panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank())
-#ggsave("figs/ts_size_density_plots.jpg", width = 6, height = 5)
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(color = "black"),
+        axis.ticks = element_line(color = "black"))
+#ggsave("figs/ts_size_density_plots_weighted.jpg", width = 6, height = 5)
 
 #values for results text
 median(dat$mean_size[dat$trophic_group=="Autotroph"])
@@ -417,9 +434,35 @@ median(dat$mean_size[dat$trophic_group=="Mixotroph"])
 median(dat$mean_size[dat$trophic_group=="Herbivore"])
 median(dat$mean_size[dat$trophic_group=="Non-herbivore"])
 
-(median(dat$mean_size[dat$trophic_group=="Autotroph"]) - 
-    median(dat$mean_size[dat$trophic_group=="Mixotroph"])) /
-  median(dat$mean_size[dat$trophic_group=="Mixotroph"]) *100
+#calculate IQRs
+autotroph_medians <- dat |>
+  filter(trophic_group == "Autotroph") |>
+  group_by(key) |>
+  summarize(med_size = median(mean_size, na.rm = TRUE), .groups = "drop")
+
+IQR(autotroph_medians$med_size, na.rm = TRUE)
+
+mixotroph_medians <- dat |>
+  filter(trophic_group == "Mixotroph") |>
+  group_by(key) |>
+  summarize(med_size = median(mean_size, na.rm = TRUE), .groups = "drop")
+
+IQR(mixotroph_medians$med_size, na.rm = TRUE)
+
+herbivore_medians <- dat |>
+  filter(trophic_group == "Herbivore") |>
+  group_by(key) |>
+  summarize(med_size = median(mean_size, na.rm = TRUE), .groups = "drop")
+
+IQR(herbivore_medians$med_size, na.rm = TRUE)
+
+nonherb_medians <- dat |>
+  filter(trophic_group == "Non-herbivore") |>
+  group_by(key) |>
+  summarize(med_size = median(mean_size, na.rm = TRUE), .groups = "drop")
+
+IQR(nonherb_medians$med_size, na.rm = TRUE)
+
 
 median(dat$mean_size[dat$trophic_group=="Autotroph" & 
                        dat$trophic_state %in% "Oligotrophic"])
@@ -457,30 +500,32 @@ median_points <- fits_summary |>
             median_logchla = median(log10(chla_day), na.rm = TRUE),
             .groups = "drop")
 
-#chla vs slope (Figure 5)
+#slope vs chla (Figure 5)
 fits_summary |>
   left_join(pred |> dplyr::select(key, chla_day), by = "key") |>
   mutate(log_chla = log10(chla_day),
          slope_dir = ifelse(slope >= 0, "positive", "negative")) |>
-  ggplot(aes(x = slope, y = log_chla, color = trophic_state, fill = trophic_state)) +
+  ggplot(aes(x = log_chla, y = slope, color = trophic_state, fill = trophic_state)) +
   geom_jitter(width = 0, height = 0.1, alpha = 0.6) +  
   geom_point(data = median_points,
-             aes(x = median_slope, y = median_logchla, fill = trophic_state),
-             shape = 21, size = 2, stroke = 0.8, color = "black",inherit.aes = FALSE) +
+             aes(y = median_slope, x = median_logchla, fill = trophic_state),
+             shape = 21, size = 2, stroke = 0.8, color = "red",inherit.aes = FALSE) +
   facet_wrap(~trophic_group, ncol = 4) +
-  geom_vline(xintercept = 0, linetype = "dotted") +
+  geom_hline(yintercept = 0, linetype = "dotted") +
   scale_color_manual(values = c("Oligotrophic" = "#21908CFF", 
                                 "Mesotrophic" = "#FDE725FF",
                                 "Eutrophic" = "#440154FF")) +
   scale_fill_manual(values = c("Oligotrophic" = "#21908CFF", 
                                "Mesotrophic" = "#FDE725FF",
                                "Eutrophic" = "#440154FF")) +
-  labs(x = "Slope", y = "Log10 Chla (µg/L)", color = "", fill = "") +
+  labs(y = "Slope", x = expression(Log[10]~chlorophyll~italic(a)), color = "", fill = "") +
   theme_minimal()  +
   theme(legend.position = "top",
         panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank())
-#ggsave("figs/chla_vs_slope.jpg", width = 5, height = 3)
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(color = "black", linewidth = 0.2),
+        axis.ticks = element_line(color = "black", linewidth = 0.2))
+#ggsave("figs/slope_vs_chla.jpg", width = 5, height = 3)
 
 #add log chla to dat
 dat <- dat |> 
@@ -526,17 +571,19 @@ ggplot(dat ,aes(x = log_chla, y = log_size, color = trophic_state)) +
   scale_color_manual(values = c("Oligotrophic" = "#21908CFF", 
                                 "Mesotrophic" = "#FDE725FF",
                                 "Eutrophic" = "#440154FF")) +
-  labs(x = "Log10 chla", y = "Log10 mean size (µm)") +
+  labs(x = expression(Log[10]~chlorophyll~italic(a)), y = expression(Log[10]~mean~size)) +
   theme_minimal() +
   theme(panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         strip.text = element_blank(),
         strip.background = element_blank(),
         legend.position = "top",
-        legend.title = element_blank())
+        legend.title = element_blank(),
+        axis.line = element_line(color = "black", linewidth = 0.4),
+        axis.ticks = element_line(color = "black", linewidth = 0.4))
 #ggsave("figs/gam_size_vs_chla.jpg", width = 5, height = 4)
 
-#pull out stats for results (Table S4) NEEDS TO BE UPDATED IN RESULTS!!!!
+#pull out stats for results (Table S4) 
 extract_gam_stats <- function(model) {
   s <- summary(model)
   tibble(
@@ -573,7 +620,7 @@ extract_smooths <- function(model) {
     dplyr::rename("trophic_state" = "term")
   return(s_tab)}
 
-# Table S5 (NEEDS TO BE UPDATED IN RESULTS AND SI)
+# Table S5 
 smooths_table <- imap_dfr(gams_interactive, ~ {
   extract_smooths(.x) |>
     dplyr::mutate(trophic_group = .y)}) |>
@@ -586,7 +633,7 @@ smooths_table <- imap_dfr(gams_interactive, ~ {
 #write.csv(smooths_table, "output/functional_group_ts_GAMs.csv", row.names = F)
 
 # spearman rank correlations to test for monotonic size relationships between functional group and trophic state
-# Table S6 NEDDS TO BE UPDATED IN SI
+# Table S6 
 cor_table <- dat |>
   dplyr::group_by(trophic_group, trophic_state) |>
   dplyr::summarise(n = sum(complete.cases(log_size, log_chla)),
@@ -632,7 +679,8 @@ ggplot(fits_summary, aes(x = trophic_group, y = slope, color = trophic_group)) +
   theme(legend.title = element_blank(),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
-        axis.ticks = element_line(),
+        axis.line = element_line(color = "black"),
+        axis.ticks = element_line(color = "black"),
         text = element_text(size=9),
         legend.position = "none",
         legend.direction = "horizontal") 
