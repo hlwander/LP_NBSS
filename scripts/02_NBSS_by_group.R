@@ -4,7 +4,7 @@ pacman::p_load(tidyverse, dplyr, ggplot2, ggmap,
                rnaturalearth, rnaturalearthdata, 
                ARTool, ggpubr, mgcv, ggpp)
 
-# calculate trophic state using chla (file modified from CP where NAs were replaced using miss forest or ecozonal means)
+# calculate trophic state using chla 
 pred <- read.csv("data/chla.csv") |>
   mutate(trophic_state = case_when( is.na(chla_day) ~ NA_character_, 
                                     chla_day < 2 ~ "Oligotrophic",
@@ -18,7 +18,7 @@ pred <- read.csv("data/chla.csv") |>
            "Oligotrophic", "Mesotrophic", "Eutrophic"))) 
 
 # read in supplemental phyto length data
-phyto_supp_lengths <- read.csv("data/supp_lengths/published_phytoplankton_colony_lengths.csv") |>
+phyto_supp_lengths <- read.csv("data/supp_lengths/collated_mean_phyto_colony_lengths.csv") |>
   rename(supp_length_um = avg_length_um)
 
 #read in plankton df
@@ -164,7 +164,7 @@ p_ts <- ggplot(slope_summary_ts,
             vjust = 0, color = "black", size = 3) +
   facet_wrap(~plankton) +
   geom_hline(yintercept = 0, linewidth = 0.3, linetype = "dashed") +
-  theme_minimal() + xlab("") + ylab("Mean slope") +
+  theme_minimal() + xlab("") + ylab("NBSS slope") +
   scale_color_manual(values = c("Oligotrophic" = "#21908CFF", 
                                 "Mesotrophic" = "#FDE725FF",
                                 "Eutrophic" = "#440154FF")) +
@@ -199,7 +199,7 @@ p_fg <- ggplot(slope_summary_fg,
   geom_text(aes(y = mean_slope + se + 0.1, label = Letter),
             position = position_dodge(width = 0.6),
             vjust = 0, color = "black", size = 3) +
-  theme_minimal() + xlab("") + ylab("Mean slope") +
+  theme_minimal() + xlab("") + ylab("NBSS slope") +
   geom_hline(yintercept = 0, linewidth = 0.3, linetype = "dashed") +
   scale_color_manual(values = c(
     "Autotroph" = "#3E6E66",
@@ -239,14 +239,14 @@ ggplot(spectra_summary, aes(x = log_size, y = mean_log_nbss,
   geom_point(show.legend = T) +
   geom_smooth(method = "lm", se = FALSE,  show.legend = FALSE) +
   geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed") +
-  scale_x_continuous(expression(Log[10]~mean~size)) +
-  scale_y_continuous(expression(Log[10]~NBSS)) +
+  scale_x_continuous(expression(Log[10]~~size~(bin~midpoint))) +
+  scale_y_continuous(expression(Log[10]~normalized~biomass)) +
   scale_color_manual(values = c(
     "Autotroph" = "#3E6E66",
     "Mixotroph"  = "#739A88",
     "Herbivore"    = "#DE482C",
     "Non-herbivore" = "#F68A4D")) +
-  theme_minimal() +
+  theme_minimal() + 
   theme(legend.title = element_blank(),
         legend.position = "top",
         panel.grid.major = element_blank(),
@@ -261,8 +261,8 @@ ggplot(spectra_summary, aes(x = log_size, y = mean_log_nbss, color = trophic_gro
   geom_smooth(method = "lm", se = FALSE, show.legend = FALSE) +      
   geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed") +
   facet_wrap(~ trophic_state, nrow=1) +                                         
-  scale_x_continuous("Log10 mean size (µm)") +
-  scale_y_continuous("Log10 NBSS") +
+  scale_x_continuous(expression(Log[10]~~size~(bin~midpoint))) +
+  scale_y_continuous(expression(Log[10]~normalized~biomass)) +
   scale_color_manual(values = c(
     "Autotroph" = "#3E6E66",
     "Mixotroph"  = "#739A88",
@@ -388,23 +388,16 @@ dat <- biomass_abs |>
          plankton = ifelse(trophic_group %in% c("Herbivore","Non-herbivore"),
                            "zooplankton","phytoplankton"))
 
-weighted_peaks <- dat |>
-  group_by(trophic_state, trophic_group) |>
-  group_modify(~{
-    d <- density(
-      x = .$mean_size,
-      weights = .$total_biomass,
-      na.rm = TRUE)
-    tibble(mu = d$x[which.max(d$y)])}) |>
-  ungroup() |>
+means <- dat |>
+  group_by(trophic_state, trophic_group) |> 
+  summarize(mu = median(mean_size, na.rm = TRUE), .groups = "drop") |>
   mutate(plankton = ifelse(trophic_group %in% c("Herbivore","Non-herbivore"),
                       "zooplankton","phytoplankton"))
 
 #histogram of plankton size across trophic states (Figure 1)
 ggplot(dat |> filter(), aes(x = mean_size, fill = trophic_group)) +
-  geom_density(aes(weight = total_biomass), alpha = 0.7) +
-  geom_vline(data = weighted_peaks, aes(xintercept = mu, color = trophic_group, 
-                                        group = plankton),
+  geom_density(alpha = 0.8) +
+  geom_vline(data = means, aes(xintercept = mu, color = trophic_group, group = plankton),
              linetype = "dashed", size = 0.6, show.legend = FALSE) +
   facet_wrap(~trophic_state + plankton, nrow = 3, scales = "free",
              labeller = labeller(trophic_state = label_value, 
@@ -420,13 +413,13 @@ ggplot(dat |> filter(), aes(x = mean_size, fill = trophic_group)) +
     "Mixotroph"  = "#739A88",
     "Herbivore"    = "#DE482C",
     "Non-herbivore" = "#F68A4D")) +
-  labs(x = "Mean size (µm)", y = "Density", fill = "") +
+  labs(x = "Mean size (µm)", y = "Frequency", fill = "") +
   theme(legend.position = "top", 
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         axis.line = element_line(color = "black"),
         axis.ticks = element_line(color = "black"))
-#ggsave("figs/ts_size_density_plots_weighted.jpg", width = 6, height = 5)
+#ggsave("figs/ts_size_freq_plots.jpg", width = 6, height = 5)
 
 #values for results text
 median(dat$mean_size[dat$trophic_group=="Autotroph"])
@@ -518,7 +511,7 @@ fits_summary |>
   scale_fill_manual(values = c("Oligotrophic" = "#21908CFF", 
                                "Mesotrophic" = "#FDE725FF",
                                "Eutrophic" = "#440154FF")) +
-  labs(y = "Slope", x = expression(Log[10]~chlorophyll~italic(a)), color = "", fill = "") +
+  labs(y = "NBSS slope", x = expression(Log[10]~chlorophyll~italic(a)), color = "", fill = "") +
   theme_minimal()  +
   theme(legend.position = "top",
         panel.grid.major = element_blank(),

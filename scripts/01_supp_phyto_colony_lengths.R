@@ -60,4 +60,4 @@ phyto_size <- phyto_list |>
            mean_length2, mean_length3, 
            mean_length4, midpoint)), na.rm = TRUE)) |>
   select(target_taxon, avg_length_um) 
-#write.csv(phyto_size, "data/size/published_phytoplankton_colony_lengths.csv", row.names=F)
+#write.csv(phyto_size, "data/supp_lengths/collated_mean_phyto_colony_lengths.csv", row.names=F)
