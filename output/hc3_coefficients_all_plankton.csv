@@ -1,0 +1,4 @@
+"term","estimate","se","t_value","p_value"
+"Intercept (Oligotrophic)",0.102,0.062,1.647,"0.1"
+"Mesotrophic",0.064,0.081,0.78,"0.435"
+"Eutrophic",0.228,0.094,2.417,"0.016"
