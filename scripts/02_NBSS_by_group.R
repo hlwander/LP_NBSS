@@ -285,8 +285,8 @@ community_summary <- community_bins |>
   left_join(pred |> dplyr::select(trophic_state, key), by = "key") |>
   filter(!is.na(trophic_state))
 
-ggplot(spectra_summary, aes(x = log_size, y = log_mean_nbss, 
-                            color = trophic_group)) +
+ggplot(spectra_summary, 
+       aes(x = log_size, y = log_mean_nbss, color = trophic_group)) +
   geom_point(show.legend = T) +
   geom_smooth(method = "lm", se = FALSE,  show.legend = FALSE) +
   geom_smooth(data = community_summary,
@@ -294,7 +294,7 @@ ggplot(spectra_summary, aes(x = log_size, y = log_mean_nbss,
               method = "lm",
               color = "black",
               linetype = "dashed",
-              se = FALSE) +
+              se = FALSE) + 
   scale_x_continuous(expression(Log[10]~~size~(bin~midpoint))) +
   scale_y_continuous(expression(Log[10]~normalized~biomass)) +
   scale_color_manual(values = c(
@@ -338,11 +338,11 @@ ggplot(spectra_summary, aes(x = log_size, y = log_mean_nbss, color = trophic_gro
 #------------------
 #manuscript tables (Table S2)
 group_slopes <- spectra_summary |>
-  filter(!is.na(trophic_group), !is.na(log_size), !is.na(mean_log_nbss)) |>
+  filter(!is.na(trophic_group), !is.na(log_size), !is.na(log_mean_nbss)) |>
   group_by(trophic_group) |>
   nest() |>
   mutate(n = map_int(data, nrow),
-         model = map(data, ~ lm(mean_log_nbss ~ log_size, data = .x)),
+         model = map(data, ~ lm(log_mean_nbss ~ log_size, data = .x)),
          tidy = map(model, broom::tidy),
          glance = map(model, broom::glance)) |>
   unnest(tidy) |>
@@ -369,7 +369,7 @@ group_by_state_slopes <- spectra_summary |>
   group_by(trophic_state, trophic_group) |>
   nest() |>
   mutate(n = map_int(data, nrow),
-         model = map(data, ~ lm(mean_log_nbss ~ log_size, data = .x)),
+         model = map(data, ~ lm(log_mean_nbss ~ log_size, data = .x)),
          tidy = map(model, broom::tidy),
          glance = map(model, broom::glance)) |>
   unnest(tidy) |>
