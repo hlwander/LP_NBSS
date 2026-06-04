@@ -3,7 +3,7 @@
 pacman::p_load(tidyverse, dplyr, ggplot2, ggmap,
                rnaturalearth, rnaturalearthdata, 
                ARTool, ggpubr, mgcv, ggpp, emmeans, 
-               multcomp, lmtest, sandwich)
+               multcomp, lmtest, sandwich, ggh4x)
 
 # calculate trophic state using chla 
 pred <- read.csv("data/env.csv") |>
@@ -298,10 +298,10 @@ ggplot(spectra_summary,
   scale_x_continuous(expression(Log[10]~~size~(bin~midpoint))) +
   scale_y_continuous(expression(Log[10]~normalized~biomass)) +
   scale_color_manual(values = c(
-    "Autotroph" = "#3E6E66",
-    "Mixotroph"  = "#739A88",
-    "Herbivore"    = "#DE482C",
-    "Non-herbivore" = "#F68A4D")) +
+    "Autotroph"      = "#225522",      #"#225522" , 3E6E66
+    "Mixotroph"      = "#009988",      #"#009988" , 739A88
+    "Herbivore"      = "#E65518",      #"#E65518", DE482C
+    "Non-herbivore"  = "#F2B701")) +
   theme_minimal() + 
   theme(legend.title = element_blank(),
         legend.position = "top",
@@ -321,10 +321,10 @@ ggplot(spectra_summary, aes(x = log_size, y = log_mean_nbss, color = trophic_gro
   scale_x_continuous(expression(Log[10]~~size~(bin~midpoint))) +
   scale_y_continuous(expression(Log[10]~normalized~biomass)) +
   scale_color_manual(values = c(
-    "Autotroph" = "#3E6E66",
-    "Mixotroph"  = "#739A88",
-    "Herbivore"    = "#DE482C",
-    "Non-herbivore" = "#F68A4D")) +
+    "Autotroph"      = "#225522",     
+    "Mixotroph"      = "#009988",    
+    "Herbivore"      = "#E65518",    
+    "Non-herbivore"  = "#F2B701")) +
   theme_minimal() +
   theme(legend.title = element_blank(),
         legend.position = "top",
@@ -483,27 +483,36 @@ means <- dat |>
 
 #histogram of plankton size across trophic states (Figure 1)
 ggplot(dat |> filter(), aes(x = mean_size, fill = trophic_group)) +
-  geom_density(alpha = 0.8) +
+  geom_density(alpha = 0.7) +
+  geom_vline(data = means, aes(xintercept = mu, group = plankton),
+             color = "black", linetype = "dashed", size = 0.6, show.legend = FALSE) +
   geom_vline(data = means, aes(xintercept = mu, color = trophic_group, group = plankton),
              linetype = "dashed", size = 0.6, show.legend = FALSE) +
-  facet_wrap(~trophic_state + plankton, nrow = 3, scales = "free",
-             labeller = labeller(trophic_state = label_value, 
-                                 plankton = function(x) "")) +
   theme_minimal(base_size = 10) +
+  facet_wrap(~trophic_state + plankton, nrow = 3, scales = "free", 
+             labeller = labeller(trophic_state = label_value,
+                                 plankton = function(x) "")) +
+  facetted_pos_scales(x = list(scale_x_continuous(limits = c(0, 120)),
+                                scale_x_continuous(limits = c(0, 2000)),
+                                scale_x_continuous(limits = c(0, 120)),
+                                scale_x_continuous(limits = c(0, 2000)),
+                                scale_x_continuous(limits = c(0, 120)),
+                                scale_x_continuous(limits = c(0, 2000)))) +
   scale_fill_manual(values = c(
-    "Autotroph" = "#3E6E66",
-    "Mixotroph"  = "#739A88",
-    "Herbivore"    = "#DE482C",
-    "Non-herbivore" = "#F68A4D")) +
+    "Autotroph"      = "#225522",      #"#225522" , 3E6E66
+    "Mixotroph"      = "#009988",      #"#009988" , 739A88
+    "Herbivore"      = "#E65518",      #"#E65518", DE482C
+    "Non-herbivore"  = "#F2B701")) +   #"#F2B701", F68A4D
   scale_color_manual(values = c(
-    "Autotroph" = "#3E6E66",
-    "Mixotroph"  = "#739A88",
-    "Herbivore"    = "#DE482C",
-    "Non-herbivore" = "#F68A4D")) +
+    "Autotroph" = "#225522",
+    "Mixotroph"  = "#009988",
+    "Herbivore"    = "#E65518",
+    "Non-herbivore" = "#F2B701")) +
   labs(x = "Mean size (µm)", y = "Frequency", fill = "") +
   theme(legend.position = "top", 
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
+        strip.text = element_text(margin = margin(b = 0.6, t = 2)),
         axis.line = element_line(color = "black"),
         axis.ticks = element_line(color = "black"))
 #ggsave("figs/ts_size_freq_plots.jpg", width = 6, height = 5)
@@ -692,8 +701,8 @@ ggplot(fits_summary, aes(x = trophic_group, y = slope, color = trophic_group)) +
   facet_wrap(~trophic_state, ncol = 1,
              labeller = labeller(trophic_state = label_map)) +
   scale_color_manual(values = c(
-    "Autotroph" = "#3E6E66", "Mixotroph"  = "#739A88",
-    "Herbivore"    = "#DE482C", "Non-herbivore" = "#F68A4D")) +
+    "Autotroph" = "#225522", "Mixotroph"  = "#009988",
+    "Herbivore"    = "#E65518", "Non-herbivore" = "#F2B701")) +
   labs(x = "", y = "NBSS slope") +
   theme_minimal() +
   geom_text(data = pos_summary,
