@@ -9,7 +9,7 @@ This repository contains four folders: 1) `data` contains all the csv files requ
 # Metadata
 
 - `colonial_autotrophs.csv` is a list of all the colonial autotrophic phytoplankton genera identified from the Lake Pulse dataset.
-- `env.csv` contains all environmental data used in our analysis, including chlorophyll _a_ (μg/L), total phosphorus (μg/L), and Secchi depth (m) for each lake in the dataset. Note that the key column in a randomized numeric identifier assigned to each lake.
+- `env.csv` contains all environmental data used in our analysis, including chlorophyll _a_ (μg/L), total phosphorus (μg/L), and Secchi depth (m) for each lake in the dataset. Note that the key column is a randomized numeric identifier assigned to each lake.
 - `map_data.csv` contains the latitude, longitude, and trophic state classification associated with each lake. Note that trophic state index was calculated following Carlson (1977).
 - `plankton_all.csv` summarizes phytoplankton and zooplankton biomass (μg/L), density (#/L), mean length (μm), and the log-10-transformed length for plankton in different trophic groups (autotroph, mixotroph, herbivore, or non-herbivore) for each lake, where lakes are assigned a unique numeric key.
 
